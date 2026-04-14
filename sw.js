@@ -1,8 +1,9 @@
-const CACHE_NAME = "flashcard-app-cache-v1";
+const CACHE_NAME = "flashcard-app-cache-v2";
+const APP_SHELL = new URL("./index.html", self.registration.scope).href;
 const CORE_ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
+  new URL("./", self.registration.scope).href,
+  APP_SHELL,
+  new URL("./manifest.webmanifest", self.registration.scope).href,
 ];
 
 self.addEventListener("install", (event) => {
@@ -30,6 +31,21 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const cloned = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match(APP_SHELL))
+        )
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -39,7 +55,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
           return response;
         })
-        .catch(() => caches.match("./index.html"));
+        .catch(() => caches.match(APP_SHELL));
     })
   );
 });
