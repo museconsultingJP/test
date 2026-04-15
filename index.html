@@ -132,8 +132,8 @@
     .answer-shell.blank::before {
       content: "\00a0";
     }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .toolbar .btn { width: auto; flex: 1; min-width: calc(50% - 4px); margin-bottom: 0; }
+    .toolbar { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 12px; }
+    .toolbar .btn { width: auto; flex: 1; min-width: 0; margin-bottom: 0; padding: 0 10px; }
     table.stats-table {
       width: 100%;
       border-collapse: collapse;
@@ -252,12 +252,12 @@
       <button type="button" class="btn btn-warn" id="btn-result-mid">△</button>
       <button type="button" class="btn btn-ok" id="btn-result-ok">○</button>
     </div>
+    <button type="button" class="btn btn-secondary" id="btn-main-home">ホーム</button>
     <div class="toolbar">
       <button type="button" class="btn btn-secondary" id="btn-main-new">新規</button>
       <button type="button" class="btn btn-secondary" id="btn-main-edit">編集</button>
       <button type="button" class="btn btn-secondary" id="btn-main-delete">削除</button>
     </div>
-    <button type="button" class="btn btn-secondary" id="btn-main-home">ホーム</button>
     <p class="legend">左にスワイプで次、右にスワイプで前。結果（○△×）で記録し次の問題へ。</p>
   </div>
 
