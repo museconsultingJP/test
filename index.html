@@ -192,6 +192,7 @@
     <label for="sel-filter">絞り込み</label>
     <select id="sel-filter">
       <option value="all">全て</option>
+      <option value="untried">未実施</option>
       <option value="weak">△と×</option>
       <option value="delta">△</option>
       <option value="cross">×</option>
@@ -229,6 +230,9 @@
     <div class="meta">
       <span id="main-set-name"></span>
       <span id="main-mode-label"></span>
+    </div>
+    <div class="meta">
+      <span>直近3回 <strong id="main-last3">—</strong></span>
     </div>
     <div class="meta">
       <span>No <strong id="main-no">—</strong></span>
@@ -380,11 +384,27 @@
       (r) => r.setNumber === problem.setNumber && r.problemNumber === problem.number
     );
     if (filter === "all") return true;
+    if (filter === "untried") return rel.length === 0;
     const has = (res) => rel.some((r) => r.result === res);
     if (filter === "weak") return has("sankaku") || has("batsu");
     if (filter === "delta") return has("sankaku");
     if (filter === "cross") return has("batsu");
     return true;
+  }
+
+  function updateLast3Ui(problem) {
+    const el = document.getElementById("main-last3");
+    if (!el) return;
+    if (!problem) {
+      el.textContent = "—";
+      return;
+    }
+    const rel = state.records
+      .filter((r) => r.setNumber === problem.setNumber && r.problemNumber === problem.number)
+      .sort((a, b) => b.seq - a.seq)
+      .slice(0, 3)
+      .map((r) => resultLabel(r.result));
+    el.textContent = rel.length ? rel.join(" ") : "—";
   }
 
   function buildQueue(setNumber, mode, filter) {
@@ -550,6 +570,7 @@
       qEl.value = "";
       aEdit.value = "";
       document.getElementById("main-no").textContent = "—";
+      updateLast3Ui(null);
       answerRevealed = false;
       stopTimer();
       document.getElementById("main-time").textContent = "00:00:00";
@@ -564,6 +585,7 @@
       wrap.classList.add("blank");
       aEdit.value = "";
       document.getElementById("main-no").textContent = "—";
+      updateLast3Ui(null);
       answerRevealed = false;
       stopTimer();
       document.getElementById("main-time").textContent = "00:00:00";
@@ -576,6 +598,7 @@
       qEl.value = p.question;
       aEdit.value = p.answer;
       document.getElementById("main-no").textContent = String(p.number);
+      updateLast3Ui(p);
       answerRevealed = true;
       stopTimer();
       document.getElementById("main-time").textContent = "00:00:00";
@@ -592,6 +615,7 @@
     wrap.classList.add("blank");
     aEdit.value = p.answer || "";
     document.getElementById("main-no").textContent = String(p.number);
+    updateLast3Ui(p);
     startTimerForCard();
     setMainButtons();
   }
@@ -665,6 +689,7 @@
     state.records.push(row);
     saveState();
     stopTimer();
+    updateLast3Ui(p);
     if (mainIndex >= mainQueue.length - 1) {
       document.getElementById("modal-done").classList.add("show");
       return;
