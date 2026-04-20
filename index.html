@@ -1,1186 +1,326 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="フラッシュカード" />
-  <meta name="theme-color" content="#0f1419" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <title>フラッシュカード</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --text: #e7edf4;
-      --muted: #8b9cb3;
-      --accent: #3d8bfd;
-      --ok: #34c759;
-      --warn: #ffcc00;
-      --bad: #ff453a;
-      --border: #2d3a4d;
-    }
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      -webkit-tap-highlight-color: transparent;
-    }
-    body {
-      padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-        max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-      max-width: 480px;
-      margin: 0 auto;
-    }
-    h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
-    h2 { font-size: 1.05rem; margin: 0 0 0.75rem; color: var(--muted); font-weight: 600; }
-    .screen { display: none; }
-    .screen.active { display: block; animation: fade 0.2s ease; }
-    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
-    select, input, textarea {
-      width: 100%;
-      padding: 12px 14px;
-      font-size: 16px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      color: var(--text);
-      margin-bottom: 0.75rem;
-    }
-    textarea {
-      min-height: 120px;
-      resize: vertical;
-      line-height: 1.45;
-    }
-    textarea.main-field {
-      min-height: 140px;
-      margin-bottom: 0;
-    }
-    textarea:read-only {
-      opacity: 1;
-    }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 48px;
-      padding: 0 18px;
-      font-size: 1rem;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-      width: 100%;
-      margin-bottom: 0.5rem;
-      touch-action: manipulation;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-    .help-banner {
-      background: #2a1f0a;
-      border: 1px solid var(--warn);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-    .btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-    .btn-ok { background: var(--ok); color: #000; }
-    .btn-warn { background: var(--warn); color: #000; }
-    .btn-bad { background: var(--bad); color: #fff; }
-    .btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0.75rem 0; }
-    .btn-row .btn { margin-bottom: 0; }
-    .btn-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .stack-gap { display: flex; flex-direction: column; gap: 0.5rem; }
-    .meta {
-      display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
-      font-size: 0.85rem; color: var(--muted); margin-bottom: 0.75rem;
-    }
-    .card-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    /* スワイプ領域：仕様 左=次 右=前 */
-    #swipe-area { touch-action: pan-y; }
-    .answer-shell {
-      min-height: 140px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg);
-      padding: 12px 14px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .answer-shell.blank {
-      color: transparent;
-    }
-    .answer-shell.blank::before {
-      content: "\00a0";
-    }
-    .toolbar { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 12px; }
-    .toolbar .btn { width: auto; flex: 1; min-width: 0; margin-bottom: 0; padding: 0 10px; }
-    table.stats-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-    }
-    table.stats-table th, table.stats-table td {
-      border: 1px solid var(--border);
-      padding: 8px 6px;
-      text-align: center;
-    }
-    table.stats-table th { background: var(--surface); color: var(--muted); font-weight: 600; }
-    table.stats-table td:first-child { text-align: left; }
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-      display: none; align-items: center; justify-content: center;
-      padding: 24px; z-index: 100;
-    }
-    .modal-overlay.show { display: flex; }
-    .modal {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 320px;
-      width: 100%;
-      text-align: center;
-      border: 1px solid var(--border);
-    }
-    .legend { font-size: 0.75rem; color: var(--muted); margin-top: 1rem; line-height: 1.5; }
-    .file-input { margin-bottom: 0.5rem; }
-    hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音感トレーニング</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px 16px}
+.app{background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,0.08);width:100%;max-width:420px;overflow:hidden}
+.screen{display:none;padding:1.5rem;min-height:520px;flex-direction:column}
+.screen.active{display:flex}
+h1{font-size:22px;font-weight:600;color:#1d1d1f;margin-bottom:1.5rem;text-align:center}
+h2{font-size:18px;font-weight:600;color:#1d1d1f;margin-bottom:1rem}
+select{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d2d2d7;border-radius:10px;background:#fff;color:#1d1d1f;margin-bottom:1.5rem;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.btn{background:#fff;border:1px solid #d2d2d7;border-radius:10px;padding:11px 20px;font-size:14px;color:#1d1d1f;cursor:pointer;transition:background 0.15s,transform 0.1s;font-weight:500}
+.btn:hover{background:#f5f5f7}
+.btn:active{transform:scale(0.98)}
+.btn-primary{background:#534AB7;color:#fff;border-color:#534AB7;font-size:15px;padding:13px 24px;border-radius:12px}
+.btn-primary:hover{background:#3C3489}
+.btn-home{font-size:13px;color:#6e6e73;border:none;background:none;cursor:pointer;padding:4px 0;margin-bottom:1rem;align-self:flex-start}
+.timer{font-size:13px;color:#6e6e73;text-align:right;margin-bottom:0.75rem;font-variant-numeric:tabular-nums}
+.play-wrap{margin-bottom:2.25rem;display:flex;flex-direction:column;align-items:center}
+.play-btn{width:80px;height:80px;border-radius:50%;background:#534AB7;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;box-shadow:0 4px 12px rgba(83,74,183,0.35)}
+.play-btn:hover{background:#3C3489}
+.play-btn:active{transform:scale(0.96)}
+.play-btn:disabled{background:#c7c7cc;cursor:default;box-shadow:none}
+.play-icon{width:0;height:0;border-top:15px solid transparent;border-bottom:15px solid transparent;border-left:24px solid #fff;margin-left:5px}
+.play-label{margin-top:8px;font-size:12px;color:#6e6e73}
+.answer-area{background:#f5f5f7;border-radius:12px;padding:1rem;text-align:center;min-height:58px;margin-bottom:1.25rem;font-size:17px;font-weight:600;color:#1d1d1f;display:flex;align-items:center;justify-content:center;line-height:1.4}
+.ok{color:#1a7f4b}.ng{color:#c0392b}
+.keys-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
+.key-btn{padding:10px 4px;font-size:13px;font-weight:600;border-radius:10px;border:1px solid #d2d2d7;background:#fff;color:#1d1d1f;cursor:pointer;transition:background 0.15s,transform 0.1s}
+.key-btn:hover:not(:disabled){background:#f0eeff;border-color:#534AB7;color:#534AB7}
+.key-btn:active:not(:disabled){transform:scale(0.97)}
+.key-btn.sharp{color:#534AB7}
+.pass-btn{width:100%;padding:10px;font-size:13px;color:#6e6e73;border:1px dashed #d2d2d7;border-radius:10px;background:none;cursor:pointer;margin-top:4px}
+.pass-btn:hover:not(:disabled){background:#f5f5f7}
+.stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:#f5f5f7;border-radius:12px;padding:14px;text-align:center}
+.stat-lbl{font-size:12px;color:#6e6e73;margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:700;color:#1d1d1f}
+.note-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.note-table th{font-weight:600;color:#6e6e73;padding:6px;border-bottom:1px solid #e5e5ea;text-align:left}
+.note-table td{padding:6px;border-bottom:1px solid #f2f2f2;color:#1d1d1f}
+.home-actions{display:flex;flex-direction:column;gap:12px;margin-top:auto}
+.oct-tabs{display:flex;gap:6px;margin-bottom:0.75rem;flex-wrap:wrap}
+.oct-tab{padding:5px 12px;font-size:12px;border-radius:8px;border:1px solid #d2d2d7;background:#fff;color:#6e6e73;cursor:pointer;font-weight:500}
+.oct-tab.active{background:#534AB7;color:#fff;border-color:#534AB7}
+.legend{display:flex;gap:14px;margin-bottom:0.75rem;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.badge{display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px;vertical-align:middle;font-weight:600}
+.badge-w20{background:#ffd5c8;color:#8b2500}
+.badge-w40{background:#fde8a0;color:#6b4000}
+.tr-w20 td{background:#fff5f2}
+.tr-w40 td{background:#fffbee}
+</style>
 </head>
 <body>
-  <div id="js-off-help" class="help-banner">
-    <strong>この画面のままではボタンが動かないことがあります。</strong><br />
-    「ファイル」の<strong>プレビュー</strong>では JavaScript が無効なことが多いです。<br />
-    まずは <strong>長押し → 共有</strong> から Safari を試してください。<strong>一覧に Safari が出ないこともあります</strong>（iOS の仕様）。そのときは下の「iPhoneで開く」の<strong>方法B・C</strong>が確実です。
+<div class="app">
+
+<div id="screen-home" class="screen active">
+  <h1>🎵 音感トレーニング</h1>
+  <div style="margin-bottom:6px;font-size:13px;color:#6e6e73;font-weight:500">出題モード</div>
+  <select id="mode-select">
+    <option value="normal">通常（全対象から）</option>
+    <option value="weak40">やや苦手（正答率下位40% または 所要時間上位40%）</option>
+    <option value="weak20">苦手（正答率下位20% または 所要時間上位20%）</option>
+  </select>
+  <div class="home-actions">
+    <button class="btn btn-primary" onclick="startTraining()">トレーニング開始</button>
+    <button class="btn" onclick="showStats()">統計情報</button>
   </div>
-  <noscript>
-    <div class="help-banner">JavaScript をオンにしてください。Safari の設定を確認してください。</div>
-  </noscript>
-  <div id="screen-home" class="screen active">
-    <h1>ホーム</h1>
-    <div class="stack-gap">
-      <button type="button" class="btn btn-primary" id="btn-goto-edit-set">問題集を編集</button>
-      <button type="button" class="btn btn-primary" id="btn-goto-main">問題を解く</button>
-    </div>
-    <hr />
-    <label for="sel-set">問題集</label>
-    <select id="sel-set"></select>
-    <label for="sel-mode">モード</label>
-    <select id="sel-mode">
-      <option value="order">番号順</option>
-      <option value="random">ランダム</option>
-    </select>
-    <label for="sel-filter">絞り込み</label>
-    <select id="sel-filter">
-      <option value="all">全て</option>
-      <option value="untried">未実施</option>
-      <option value="weak">△と×</option>
-      <option value="delta">△</option>
-      <option value="cross">×</option>
-    </select>
-    <hr />
-    <h2>データ</h2>
-    <div class="btn-row-2">
-      <button type="button" class="btn btn-secondary" id="btn-csv-export">CSVエクスポート</button>
-      <button type="button" class="btn btn-secondary" id="btn-json-export">JSONエクスポート</button>
-    </div>
-    <label class="file-input">CSVインポート<input type="file" id="file-csv-import" accept=".csv,text/csv" /></label>
-    <label class="file-input">JSONインポート<input type="file" id="file-json-import" accept=".json,application/json" /></label>
-    <button type="button" class="btn btn-secondary" id="btn-goto-stats">統計情報</button>
-    <button type="button" class="btn btn-secondary" id="btn-home-exit">終了</button>
-    <p class="legend">○わかった／△自信なし／×わからなかった。絞り込みは過去の実施記録に基づきます。</p>
+</div>
+
+<div id="screen-main" class="screen">
+  <button class="btn-home" onclick="goHome()">← ホーム</button>
+  <div class="timer">⏱ <span id="timer-display">0:00</span></div>
+  <div class="play-wrap">
+    <button class="play-btn" id="play-btn" onclick="onPlayBtn()">
+      <div class="play-icon"></div>
+    </button>
+    <div class="play-label" id="play-label">タップして再生</div>
   </div>
+  <div class="answer-area" id="answer-area">▲ ボタンを押して音を鳴らしてください</div>
+  <div class="keys-grid" id="keys-grid"></div>
+  <button class="pass-btn" id="pass-btn" onclick="doPass()">パス（わからない）</button>
+</div>
 
-  <div id="screen-edit-set" class="screen">
-    <h1>問題集の編集</h1>
-    <label for="create-set-select">編集する問題集</label>
-    <select id="create-set-select"></select>
-    <label for="create-set-name">名称</label>
-    <input type="text" id="create-set-name" placeholder="問題集の名前" />
-    <button type="button" class="btn btn-primary" id="btn-save-set-name">名称を保存</button>
-    <button type="button" class="btn btn-secondary" id="btn-new-set">新規問題集を追加</button>
-    <hr />
-    <h2>フラッシュカード</h2>
-    <div id="create-cards-list" class="stack-gap"></div>
-    <button type="button" class="btn btn-secondary" id="btn-add-card">カードを追加</button>
-    <button type="button" class="btn btn-secondary" id="btn-back-home-create">ホームへ</button>
+<div id="screen-stats" class="screen">
+  <button class="btn-home" onclick="goHome()">← ホーム</button>
+  <h2>統計情報</h2>
+  <div class="stat-cards">
+    <div class="stat-card"><div class="stat-lbl">正解数</div><div class="stat-val" id="s-correct">0</div></div>
+    <div class="stat-card"><div class="stat-lbl">試行数</div><div class="stat-val" id="s-total">0</div></div>
+    <div class="stat-card"><div class="stat-lbl">正解率</div><div class="stat-val" id="s-rate">—</div></div>
+    <div class="stat-card"><div class="stat-lbl">平均時間</div><div class="stat-val" id="s-avg">—</div></div>
   </div>
-
-  <div id="screen-main" class="screen">
-    <h1>メイン</h1>
-    <div class="meta">
-      <span id="main-set-name"></span>
-      <span id="main-mode-label"></span>
-    </div>
-    <div class="meta">
-      <span>直近3回 <strong id="main-last3">—</strong></span>
-    </div>
-    <div class="meta">
-      <span>No <strong id="main-no">—</strong></span>
-      <span>総問題数 <strong id="main-total">0</strong></span>
-      <span>時間 <strong id="main-time">00:00:00</strong></span>
-    </div>
-    <div class="card-panel" id="swipe-area">
-      <label for="main-question">問題文</label>
-      <textarea id="main-question" class="main-field" readonly rows="6"></textarea>
-      <label for="main-answer-wrap">解答文</label>
-      <div id="main-answer-wrap" class="answer-shell blank" aria-live="polite"></div>
-      <textarea id="main-answer-edit" class="main-field" rows="6" style="display:none;"></textarea>
-    </div>
-    <button type="button" class="btn btn-secondary" id="btn-show-answer">解答表示</button>
-    <div class="btn-row">
-      <button type="button" class="btn btn-bad" id="btn-result-bad">×</button>
-      <button type="button" class="btn btn-warn" id="btn-result-mid">△</button>
-      <button type="button" class="btn btn-ok" id="btn-result-ok">○</button>
-    </div>
-    <button type="button" class="btn btn-secondary" id="btn-main-home">ホーム</button>
-    <div class="toolbar">
-      <button type="button" class="btn btn-secondary" id="btn-main-new">新規</button>
-      <button type="button" class="btn btn-secondary" id="btn-main-edit">編集</button>
-      <button type="button" class="btn btn-secondary" id="btn-main-delete">削除</button>
-    </div>
-    <p class="legend">左にスワイプで次、右にスワイプで前。結果（○△×）で記録し次の問題へ。</p>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#ffd5c8"></div>苦手（下位20%）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fde8a0"></div>やや苦手（下位40%）</div>
   </div>
-
-  <div id="screen-stats" class="screen">
-    <h1>統計情報</h1>
-    <div id="stats-body"></div>
-    <button type="button" class="btn btn-primary" id="btn-stats-download">統計情報のダウンロード</button>
-    <button type="button" class="btn btn-secondary" id="btn-stats-home">ホームへ</button>
+  <div class="oct-tabs">
+    <button class="oct-tab active" onclick="setOctTab('all',this)">全体</button>
+    <button class="oct-tab" onclick="setOctTab(3,this)">oct3</button>
+    <button class="oct-tab" onclick="setOctTab(4,this)">oct4</button>
+    <button class="oct-tab" onclick="setOctTab(5,this)">oct5</button>
   </div>
-
-  <div id="modal-done" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-done-title">
-    <div class="modal">
-      <p id="modal-done-title" style="font-size:1.1rem;margin:0 0 12px;font-weight:600;">完了</p>
-      <p style="margin:0 0 16px;color:var(--muted);">全ての問題が終わりました。</p>
-      <button type="button" class="btn btn-primary" id="btn-modal-done-ok">ホームへ</button>
-    </div>
+  <div style="overflow-x:auto">
+    <table class="note-table">
+      <thead><tr><th>音名</th><th>正解</th><th>試行</th><th>正解率</th><th>平均時間</th></tr></thead>
+      <tbody id="note-table-body"></tbody>
+    </table>
   </div>
-
-  <script>
-(function () {
-  var helpEl = document.getElementById("js-off-help");
-  if (helpEl) helpEl.style.display = "none";
-
-  const STORAGE_KEY = "flashcard_app_v2";
-  const LEGACY_KEY = "flashcard_app_v1";
-
-  try {
-
-  function emptyState() {
-    return {
-      problemSets: [],
-      problems: [],
-      records: [],
-      lastSetNumber: null,
-      nextSetNumber: 1,
-      nextRecordSeq: 1,
-    };
-  }
-
-  function migrateLegacy(raw) {
-    try {
-      const p = JSON.parse(raw);
-      return {
-        problemSets: p.problemSets || [],
-        problems: (p.problems || []).map((x) => ({
-          number: x.number,
-          setNumber: x.setNumber,
-          question: x.question,
-          answer: x.answer,
-        })),
-        records: (p.records || []).map((r) => ({
-          seq: r.seq,
-          datetime: r.datetime,
-          problemNumber: r.problemNumber,
-          setNumber: r.setNumber,
-          result: r.result,
-          durationMs: r.durationMs,
-        })),
-        lastSetNumber: p.lastSetNumber != null ? p.lastSetNumber : null,
-        nextSetNumber: p.nextSetNumber != null ? p.nextSetNumber : 1,
-        nextRecordSeq: p.nextRecordSeq != null ? p.nextRecordSeq : 1,
-      };
-    } catch (e) {
-      return emptyState();
-    }
-  }
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const p = JSON.parse(raw);
-        return {
-          problemSets: p.problemSets || [],
-          problems: p.problems || [],
-          records: p.records || [],
-          lastSetNumber: p.lastSetNumber != null ? p.lastSetNumber : null,
-          nextSetNumber: p.nextSetNumber != null ? p.nextSetNumber : 1,
-          nextRecordSeq: p.nextRecordSeq != null ? p.nextRecordSeq : 1,
-        };
-      }
-      const leg = localStorage.getItem(LEGACY_KEY);
-      if (leg) {
-        const s = migrateLegacy(leg);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-        return s;
-      }
-    } catch (e) { /* ignore */ }
-    return emptyState();
-  }
-
-  let state = loadState();
-
-  function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      alert("データを保存できませんでした（ストレージ制限や非公開ブラウズの可能性があります）。");
-    }
-  }
-
-  function showScreen(id) {
-    document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
-    const el = document.getElementById(id);
-    if (el) el.classList.add("active");
-  }
-
-  function getSet(num) {
-    return state.problemSets.find((s) => s.setNumber === num);
-  }
-
-  function problemsInSet(setNumber) {
-    return state.problems.filter((p) => p.setNumber === setNumber).sort((a, b) => a.number - b.number);
-  }
-
-  function nextProblemNumberInSet(setNumber) {
-    const list = problemsInSet(setNumber);
-    if (!list.length) return 1;
-    return Math.max(...list.map((p) => p.number)) + 1;
-  }
-
-  function recordMatchesFilter(problem, filter) {
-    const rel = state.records.filter(
-      (r) => r.setNumber === problem.setNumber && r.problemNumber === problem.number
-    );
-    if (filter === "all") return true;
-    if (filter === "untried") return rel.length === 0;
-    const has = (res) => rel.some((r) => r.result === res);
-    if (filter === "weak") return has("sankaku") || has("batsu");
-    if (filter === "delta") return has("sankaku");
-    if (filter === "cross") return has("batsu");
-    return true;
-  }
-
-  function updateLast3Ui(problem) {
-    const el = document.getElementById("main-last3");
-    if (!el) return;
-    if (!problem) {
-      el.textContent = "—";
-      return;
-    }
-    const rel = state.records
-      .filter((r) => r.setNumber === problem.setNumber && r.problemNumber === problem.number)
-      .sort((a, b) => b.seq - a.seq)
-      .slice(0, 3)
-      .map((r) => resultLabel(r.result));
-    el.textContent = rel.length ? rel.join(" ") : "—";
-  }
-
-  function buildQueue(setNumber, mode, filter) {
-    let list = problemsInSet(setNumber).filter((p) => recordMatchesFilter(p, filter));
-    if (mode === "random") list = [...list].sort(() => Math.random() - 0.5);
-    return list;
-  }
-
-  let mainQueue = [];
-  let mainIndex = 0;
-  /** @type {'study'|'new'|'edit'} */
-  let mainUiMode = "study";
-  let answerRevealed = false;
-  let timerStart = 0;
-  let timerId = null;
-
-  function formatDuration(ms) {
-    const s = Math.floor(ms / 1000);
-    const h = String(Math.floor(s / 3600)).padStart(2, "0");
-    const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    const sec = String(s % 60).padStart(2, "0");
-    return `${h}:${m}:${sec}`;
-  }
-
-  function stopTimer() {
-    if (timerId) {
-      clearInterval(timerId);
-      timerId = null;
-    }
-  }
-
-  function startTimerForCard() {
-    stopTimer();
-    timerStart = Date.now();
-    const el = document.getElementById("main-time");
-    const tick = () => {
-      el.textContent = formatDuration(Date.now() - timerStart);
-    };
-    tick();
-    timerId = setInterval(tick, 250);
-  }
-
-  function elapsedMs() {
-    return Date.now() - timerStart;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function fillSetSelects() {
-    const homeSel = document.getElementById("sel-set");
-    const createSel = document.getElementById("create-set-select");
-    const sets = [...state.problemSets].sort((a, b) => a.setNumber - b.setNumber);
-    function fill(sel) {
-      sel.innerHTML = "";
-      sets.forEach((s) => {
-        const o = document.createElement("option");
-        o.value = String(s.setNumber);
-        o.textContent = `${s.setNumber}: ${s.name || "（無題）"}`;
-        sel.appendChild(o);
-      });
-    }
-    fill(homeSel);
-    fill(createSel);
-    if (state.lastSetNumber != null && sets.some((s) => s.setNumber === state.lastSetNumber)) {
-      homeSel.value = String(state.lastSetNumber);
-    } else if (sets.length) homeSel.value = String(sets[0].setNumber);
-    if (sets.length && (!createSel.value || !getSet(Number(createSel.value)))) {
-      createSel.value = String(sets[0].setNumber);
-    }
-  }
-
-  function refreshCreateList() {
-    const sel = document.getElementById("create-set-select");
-    const setNum = Number(sel.value);
-    const set = getSet(setNum);
-    document.getElementById("create-set-name").value = set ? set.name : "";
-    const container = document.getElementById("create-cards-list");
-    container.innerHTML = "";
-    problemsInSet(setNum).forEach((p) => {
-      const wrap = document.createElement("div");
-      wrap.className = "card-panel";
-      wrap.innerHTML = `
-        <div class="meta"><span>No.${p.number}</span></div>
-        <label>問題文</label>
-        <textarea class="cq" data-n="${p.number}" rows="4">${escapeHtml(p.question)}</textarea>
-        <label>解答文</label>
-        <textarea class="ca" data-n="${p.number}" rows="4">${escapeHtml(p.answer)}</textarea>
-        <button type="button" class="btn btn-secondary btn-save-one" data-n="${p.number}">このカードを保存</button>
-      `;
-      container.appendChild(wrap);
-    });
-    container.querySelectorAll(".btn-save-one").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const n = Number(btn.getAttribute("data-n"));
-        const root = btn.closest(".card-panel");
-        const q = root.querySelector(".cq").value;
-        const a = root.querySelector(".ca").value;
-        const pr = state.problems.find((x) => x.setNumber === setNum && x.number === n);
-        if (pr) {
-          pr.question = q;
-          pr.answer = a;
-          saveState();
-        }
-      });
-    });
-  }
-
-  function currentMainProblem() {
-    return mainQueue[mainIndex] || null;
-  }
-
-  function setMainButtons() {
-    const newBtn = document.getElementById("btn-main-new");
-    const editBtn = document.getElementById("btn-main-edit");
-    newBtn.textContent = mainUiMode === "new" ? "保存" : "新規";
-    editBtn.textContent = mainUiMode === "edit" ? "保存" : "編集";
-    const study = mainUiMode === "study";
-    document.getElementById("btn-show-answer").disabled = !study || !currentMainProblem();
-    document.getElementById("btn-result-ok").disabled = !study || !currentMainProblem();
-    document.getElementById("btn-result-mid").disabled = !study || !currentMainProblem();
-    document.getElementById("btn-result-bad").disabled = !study || !currentMainProblem();
-    newBtn.disabled = mainUiMode === "edit";
-    editBtn.disabled = mainUiMode === "new" || !currentMainProblem();
-    document.getElementById("btn-main-delete").disabled = !study || !currentMainProblem();
-  }
-
-  function applyMainLayout() {
-    const qEl = document.getElementById("main-question");
-    const wrap = document.getElementById("main-answer-wrap");
-    const aEdit = document.getElementById("main-answer-edit");
-    if (mainUiMode === "study") {
-      aEdit.style.display = "none";
-      wrap.style.display = "block";
-      qEl.readOnly = true;
-    } else {
-      wrap.style.display = "none";
-      aEdit.style.display = "block";
-      qEl.readOnly = false;
-    }
-  }
-
-  function renderMainCard() {
-    const p = currentMainProblem();
-    const set = p ? getSet(p.setNumber) : null;
-    document.getElementById("main-set-name").textContent = set ? `問題集: ${set.name}` : "";
-    const mode = document.getElementById("sel-mode").value;
-    document.getElementById("main-mode-label").textContent =
-      mode === "random" ? "モード: ランダム" : "モード: 番号順";
-    document.getElementById("main-total").textContent = String(mainQueue.length);
-
-    const qEl = document.getElementById("main-question");
-    const wrap = document.getElementById("main-answer-wrap");
-    const aEdit = document.getElementById("main-answer-edit");
-
-    if (mainUiMode === "new") {
-      applyMainLayout();
-      qEl.value = "";
-      aEdit.value = "";
-      document.getElementById("main-no").textContent = "—";
-      updateLast3Ui(null);
-      answerRevealed = false;
-      stopTimer();
-      document.getElementById("main-time").textContent = "00:00:00";
-      setMainButtons();
-      return;
-    }
-
-    if (!p) {
-      applyMainLayout();
-      qEl.value = "";
-      wrap.textContent = "";
-      wrap.classList.add("blank");
-      aEdit.value = "";
-      document.getElementById("main-no").textContent = "—";
-      updateLast3Ui(null);
-      answerRevealed = false;
-      stopTimer();
-      document.getElementById("main-time").textContent = "00:00:00";
-      setMainButtons();
-      return;
-    }
-
-    if (mainUiMode === "edit") {
-      applyMainLayout();
-      qEl.value = p.question;
-      aEdit.value = p.answer;
-      document.getElementById("main-no").textContent = String(p.number);
-      updateLast3Ui(p);
-      answerRevealed = true;
-      stopTimer();
-      document.getElementById("main-time").textContent = "00:00:00";
-      setMainButtons();
-      return;
-    }
-
-    /* study */
-    mainUiMode = "study";
-    applyMainLayout();
-    qEl.value = p.question || "";
-    answerRevealed = false;
-    wrap.textContent = "";
-    wrap.classList.add("blank");
-    aEdit.value = p.answer || "";
-    document.getElementById("main-no").textContent = String(p.number);
-    updateLast3Ui(p);
-    startTimerForCard();
-    setMainButtons();
-  }
-
-  function revealAnswer() {
-    const p = currentMainProblem();
-    if (!p || mainUiMode !== "study") return;
-    const wrap = document.getElementById("main-answer-wrap");
-    wrap.classList.remove("blank");
-    wrap.textContent = p.answer || "";
-    answerRevealed = true;
-  }
-
-  function goMainNext() {
-    if (mainUiMode !== "study") return;
-    if (mainIndex < mainQueue.length - 1) {
-      mainIndex++;
-      renderMainCard();
-    }
-  }
-
-  function goMainPrev() {
-    if (mainUiMode !== "study") return;
-    if (mainIndex > 0) {
-      mainIndex--;
-      renderMainCard();
-    }
-  }
-
-  function saveNewCard() {
-    const setNum = Number(document.getElementById("sel-set").value);
-    if (!setNum || !getSet(setNum)) {
-      alert("問題集を選択してください。");
-      return;
-    }
-    const q = document.getElementById("main-question").value.trim();
-    const a = document.getElementById("main-answer-edit").value.trim();
-    const num = nextProblemNumberInSet(setNum);
-    state.problems.push({ number: num, setNumber: setNum, question: q, answer: a });
-    saveState();
-    mainUiMode = "study";
-    const mode = document.getElementById("sel-mode").value;
-    const filter = document.getElementById("sel-filter").value;
-    mainQueue = buildQueue(setNum, mode, filter);
-    mainIndex = mainQueue.findIndex((x) => x.number === num);
-    if (mainIndex < 0) mainIndex = Math.max(0, mainQueue.length - 1);
-    renderMainCard();
-  }
-
-  function saveEditCard() {
-    const p = currentMainProblem();
-    if (!p) return;
-    p.question = document.getElementById("main-question").value;
-    p.answer = document.getElementById("main-answer-edit").value;
-    saveState();
-    mainUiMode = "study";
-    renderMainCard();
-  }
-
-  function recordResult(kind) {
-    const p = currentMainProblem();
-    if (!p || mainUiMode !== "study") return;
-    const row = {
-      seq: state.nextRecordSeq++,
-      datetime: new Date().toISOString(),
-      problemNumber: p.number,
-      setNumber: p.setNumber,
-      result: kind,
-      durationMs: elapsedMs(),
-    };
-    state.records.push(row);
-    saveState();
-    stopTimer();
-    updateLast3Ui(p);
-    if (mainIndex >= mainQueue.length - 1) {
-      document.getElementById("modal-done").classList.add("show");
-      return;
-    }
-    mainIndex++;
-    renderMainCard();
-  }
-
-  function resultLabel(res) {
-    if (res === "maru") return "○";
-    if (res === "sankaku") return "△";
-    return "×";
-  }
-
-  function renderStats() {
-    const body = document.getElementById("stats-body");
-    const fromProblems = state.problems.map((p) => p.setNumber);
-    const fromRecords = state.records.map((r) => r.setNumber);
-    const setNums = [...new Set(fromProblems.concat(fromRecords))].sort((a, b) => a - b);
-    if (!setNums.length) {
-      body.innerHTML = "<p class=\"legend\">データがありません。</p>";
-      return;
-    }
-    const rows = [];
-    setNums.forEach((sn) => {
-      const s = getSet(sn);
-      const name = s ? s.name : `（${sn}）`;
-      const rel = state.records.filter((r) => r.setNumber === sn);
-      const maru = rel.filter((r) => r.result === "maru").length;
-      const sankaku = rel.filter((r) => r.result === "sankaku").length;
-      const batsu = rel.filter((r) => r.result === "batsu").length;
-      const totalAttempts = maru + sankaku + batsu;
-      const sumMs = rel.reduce((acc, r) => acc + r.durationMs, 0);
-      const avgMs = totalAttempts ? Math.round(sumMs / totalAttempts) : 0;
-      rows.push({ sn, name, totalAttempts, maru, sankaku, batsu, sumMs, avgMs });
-    });
-    let html =
-      "<table class=\"stats-table\"><thead><tr><th>問題集</th><th>実施回数</th><th>○</th><th>△</th><th>×</th><th>総時間</th><th>平均時間</th></tr></thead><tbody>";
-    rows.forEach((r) => {
-      html += `<tr><td>${escapeHtml(r.name)}</td><td>${r.totalAttempts}</td><td>${r.maru}</td><td>${r.sankaku}</td><td>${r.batsu}</td><td>${formatDuration(r.sumMs)}</td><td>${formatDuration(r.avgMs)}</td></tr>`;
-    });
-    html += "</tbody></table>";
-    body.innerHTML = html;
-  }
-
-  function downloadText(filename, text, mime) {
-    const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  function exportProblemsCsv() {
-    const lines = ["問題集番号,問題番号,問題文,解答文"];
-    state.problems
-      .sort((a, b) => a.setNumber - b.setNumber || a.number - b.number)
-      .forEach((p) => {
-        const q = `"${String(p.question).replace(/"/g, '""')}"`;
-        const a = `"${String(p.answer).replace(/"/g, '""')}"`;
-        lines.push(`${p.setNumber},${p.number},${q},${a}`);
-      });
-    downloadText("flashcards.csv", "\uFEFF" + lines.join("\n"), "text/csv;charset=utf-8");
-  }
-
-  function exportProblemsJson() {
-    const bySet = {};
-    state.problemSets.forEach((s) => {
-      bySet[s.setNumber] = problemsInSet(s.setNumber).map((p) => ({
-        number: p.number,
-        question: p.question,
-        answer: p.answer,
-      }));
-    });
-    downloadText(
-      "flashcards.json",
-      JSON.stringify({ problemSets: state.problemSets, problemsBySet: bySet }, null, 2),
-      "application/json"
-    );
-  }
-
-  /** 仕様: 問題集番号、名称、問題番号、問題文、解答文、実施日時、結果、所要時間 */
-  function exportStatsJoinedCsv() {
-    const lines = [
-      "問題集番号,名称,問題番号,問題文,解答文,実施日時,結果,所要時間",
-    ];
-    const sorted = [...state.records].sort((a, b) => a.seq - b.seq);
-    sorted.forEach((r) => {
-      const s = getSet(r.setNumber);
-      const name = s ? s.name : "";
-      const prob = state.problems.find(
-        (p) => p.setNumber === r.setNumber && p.number === r.problemNumber
-      );
-      const qText = prob ? prob.question : "";
-      const aText = prob ? prob.answer : "";
-      const duration = formatDuration(r.durationMs);
-      const cq = `"${String(qText).replace(/"/g, '""')}"`;
-      const ca = `"${String(aText).replace(/"/g, '""')}"`;
-      const cname = `"${String(name).replace(/"/g, '""')}"`;
-      lines.push(
-        `${r.setNumber},${cname},${r.problemNumber},${cq},${ca},${r.datetime},${resultLabel(r.result)},${duration}`
-      );
-    });
-    downloadText("flashcard_stats.csv", "\uFEFF" + lines.join("\n"), "text/csv;charset=utf-8");
-  }
-
-  function parseCsv(text) {
-    const rows = [];
-    let i = 0;
-    let field = "";
-    let row = [];
-    let inQ = false;
-    while (i < text.length) {
-      const c = text[i];
-      if (inQ) {
-        if (c === '"') {
-          if (text[i + 1] === '"') {
-            field += '"';
-            i += 2;
-            continue;
-          }
-          inQ = false;
-          i++;
-          continue;
-        }
-        field += c;
-        i++;
-        continue;
-      }
-      if (c === '"') {
-        inQ = true;
-        i++;
-        continue;
-      }
-      if (c === ",") {
-        row.push(field);
-        field = "";
-        i++;
-        continue;
-      }
-      if (c === "\r") {
-        i++;
-        continue;
-      }
-      if (c === "\n") {
-        row.push(field);
-        if (row.some((x) => x !== "")) rows.push(row);
-        row = [];
-        field = "";
-        i++;
-        continue;
-      }
-      field += c;
-      i++;
-    }
-    row.push(field);
-    if (row.some((x) => x !== "")) rows.push(row);
-    return rows;
-  }
-
-  function importCsv(text) {
-    const rows = parseCsv(text.replace(/^\uFEFF/, ""));
-    if (rows.length < 2) return;
-    const head = rows[0].map((h) => h.trim());
-    const idx = (name) => head.findIndex((h) => h === name || h.includes(name));
-    let iSet = idx("問題集番号");
-    let iNum = idx("問題番号");
-    let iQ = idx("問題文");
-    let iA = idx("解答文");
-    if (iA < 0) iA = idx("回答文");
-    if (iSet < 0) iSet = 0;
-    if (iNum < 0) iNum = 1;
-    if (iQ < 0) iQ = 2;
-    if (iA < 0) iA = 3;
-    for (let r = 1; r < rows.length; r++) {
-      const row = rows[r];
-      if (row.length < 4) continue;
-      const setNumber = Number(row[iSet]);
-      const number = Number(row[iNum]);
-      if (!Number.isFinite(setNumber) || !Number.isFinite(number)) continue;
-      if (!getSet(setNumber)) {
-        state.problemSets.push({ setNumber, name: `問題集${setNumber}` });
-      }
-      const question = row[iQ] || "";
-      const answer = row[iA] || "";
-      const existing = state.problems.find((p) => p.setNumber === setNumber && p.number === number);
-      if (existing) {
-        existing.question = question;
-        existing.answer = answer;
-      } else {
-        state.problems.push({ number, setNumber, question, answer });
-      }
-      state.nextSetNumber = Math.max(state.nextSetNumber, setNumber + 1);
-    }
-    saveState();
-    fillSetSelects();
-    refreshCreateList();
-    alert("CSVを取り込みました。");
-  }
-
-  function importJson(text) {
-    const data = JSON.parse(text);
-    if (data.problemsBySet && typeof data.problemsBySet === "object") {
-      Object.keys(data.problemsBySet).forEach((k) => {
-        const setNumber = Number(k);
-        if (!getSet(setNumber)) {
-          const ps = (data.problemSets || []).find((x) => x.setNumber === setNumber);
-          state.problemSets.push({ setNumber, name: ps ? ps.name : `問題集${setNumber}` });
-        }
-        data.problemsBySet[k].forEach((item) => {
-          const number = item.number;
-        const q = item.question != null ? item.question : "";
-        const a = item.answer != null ? item.answer : "";
-          const ex = state.problems.find((p) => p.setNumber === setNumber && p.number === number);
-          if (ex) {
-            ex.question = q;
-            ex.answer = a;
-          } else {
-            state.problems.push({ setNumber, number, question: q, answer: a });
-          }
-        });
-      });
-    } else if (Array.isArray(data)) {
-      data.forEach((item) => {
-        const setNumber = item.setNumber != null ? item.setNumber : item.問題集番号;
-        const number = item.number != null ? item.number : item.問題番号;
-        if (!Number.isFinite(setNumber) || !Number.isFinite(number)) return;
-        if (!getSet(setNumber)) {
-          state.problemSets.push({ setNumber, name: item.setName || `問題集${setNumber}` });
-        }
-        const q = item.question != null ? item.question : item.問題文 != null ? item.問題文 : "";
-        const a =
-          item.answer != null
-            ? item.answer
-            : item.解答文 != null
-              ? item.解答文
-              : item.回答 != null
-                ? item.回答
-                : "";
-        const ex = state.problems.find((p) => p.setNumber === setNumber && p.number === number);
-        if (ex) {
-          ex.question = q;
-          ex.answer = a;
-        } else {
-          state.problems.push({ setNumber, number, question: q, answer: a });
-        }
-      });
-    } else {
-      if (data.problemSets) {
-        data.problemSets.forEach((s) => {
-          if (!getSet(s.setNumber)) state.problemSets.push({ setNumber: s.setNumber, name: s.name || "" });
-        });
-      }
-      if (data.problems) {
-        data.problems.forEach((p) => {
-          const ex = state.problems.find((x) => x.setNumber === p.setNumber && x.number === p.number);
-          if (ex) {
-            ex.question = p.question;
-            ex.answer = p.answer;
-          } else {
-            state.problems.push({ ...p });
-          }
-        });
-      }
-    }
-    state.nextSetNumber = Math.max(state.nextSetNumber, ...state.problemSets.map((s) => s.setNumber + 1), 1);
-    saveState();
-    fillSetSelects();
-    refreshCreateList();
-    alert("JSONを取り込みました。");
-  }
-
-  const swipeEl = document.getElementById("swipe-area");
-  let sx = 0;
-  let sy = 0;
-  swipeEl.addEventListener(
-    "touchstart",
-    (e) => {
-      const t = e.changedTouches[0];
-      sx = t.clientX;
-      sy = t.clientY;
-    },
-    { passive: true }
-  );
-  swipeEl.addEventListener(
-    "touchend",
-    (e) => {
-      if (mainUiMode !== "study") return;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - sx;
-      const dy = t.clientY - sy;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
-      /* 仕様: 左スワイプ=次、右スワイプ=前 */
-      if (dx < -50) goMainNext();
-      else if (dx > 50) goMainPrev();
-    },
-    { passive: true }
-  );
-
-  document.getElementById("btn-goto-edit-set").addEventListener("click", () => {
-    fillSetSelects();
-    const cs = document.getElementById("create-set-select");
-    const hs = document.getElementById("sel-set");
-    if (hs.value) cs.value = hs.value;
-    refreshCreateList();
-    showScreen("screen-edit-set");
-  });
-
-  document.getElementById("btn-back-home-create").addEventListener("click", () => {
-    showScreen("screen-home");
-    fillSetSelects();
-  });
-
-  document.getElementById("create-set-select").addEventListener("change", refreshCreateList);
-
-  document.getElementById("btn-save-set-name").addEventListener("click", () => {
-    const setNum = Number(document.getElementById("create-set-select").value);
-    const name = document.getElementById("create-set-name").value.trim();
-    const s = getSet(setNum);
-    if (s) s.name = name;
-    saveState();
-    fillSetSelects();
-    alert("保存しました。");
-  });
-
-  document.getElementById("btn-new-set").addEventListener("click", () => {
-    const num = state.nextSetNumber++;
-    state.problemSets.push({ setNumber: num, name: `新規問題集${num}` });
-    saveState();
-    fillSetSelects();
-    document.getElementById("create-set-select").value = String(num);
-    document.getElementById("create-set-name").value = `新規問題集${num}`;
-    refreshCreateList();
-  });
-
-  document.getElementById("btn-add-card").addEventListener("click", () => {
-    const setNum = Number(document.getElementById("create-set-select").value);
-    if (!setNum) return;
-    const num = nextProblemNumberInSet(setNum);
-    state.problems.push({ number: num, setNumber: setNum, question: "", answer: "" });
-    saveState();
-    refreshCreateList();
-  });
-
-  document.getElementById("btn-goto-main").addEventListener("click", () => {
-    const setNum = Number(document.getElementById("sel-set").value);
-    if (!setNum || !getSet(setNum)) {
-      alert("問題集をプルダウンで選択してください。");
-      return;
-    }
-    state.lastSetNumber = setNum;
-    saveState();
-    const mode = document.getElementById("sel-mode").value;
-    const filter = document.getElementById("sel-filter").value;
-    mainQueue = buildQueue(setNum, mode, filter);
-    mainIndex = 0;
-    mainUiMode = "study";
-    if (!mainQueue.length) {
-      alert("この条件では問題がありません。絞り込みや問題集を確認してください。");
-      return;
-    }
-    showScreen("screen-main");
-    renderMainCard();
-  });
-
-  document.getElementById("btn-show-answer").addEventListener("click", revealAnswer);
-
-  document.getElementById("btn-result-ok").addEventListener("click", () => recordResult("maru"));
-  document.getElementById("btn-result-mid").addEventListener("click", () => recordResult("sankaku"));
-  document.getElementById("btn-result-bad").addEventListener("click", () => recordResult("batsu"));
-
-  document.getElementById("btn-main-new").addEventListener("click", () => {
-    if (mainUiMode === "new") {
-      saveNewCard();
-      return;
-    }
-    mainUiMode = "new";
-    renderMainCard();
-  });
-
-  document.getElementById("btn-main-edit").addEventListener("click", () => {
-    if (!currentMainProblem()) return;
-    if (mainUiMode === "edit") {
-      saveEditCard();
-      return;
-    }
-    mainUiMode = "edit";
-    renderMainCard();
-  });
-
-  document.getElementById("btn-main-delete").addEventListener("click", () => {
-    const p = currentMainProblem();
-    if (!p || !confirm("このカードを削除しますか？")) return;
-    state.problems = state.problems.filter((x) => !(x.setNumber === p.setNumber && x.number === p.number));
-    saveState();
-    mainQueue = buildQueue(p.setNumber, document.getElementById("sel-mode").value, document.getElementById("sel-filter").value);
-    if (mainIndex >= mainQueue.length) mainIndex = Math.max(0, mainQueue.length - 1);
-    mainUiMode = "study";
-    renderMainCard();
-  });
-
-  document.getElementById("btn-main-home").addEventListener("click", () => {
-    stopTimer();
-    mainUiMode = "study";
-    showScreen("screen-home");
-    fillSetSelects();
-  });
-
-  document.getElementById("btn-modal-done-ok").addEventListener("click", () => {
-    document.getElementById("modal-done").classList.remove("show");
-    stopTimer();
-    mainUiMode = "study";
-    showScreen("screen-home");
-    fillSetSelects();
-  });
-
-  document.getElementById("btn-goto-stats").addEventListener("click", () => {
-    renderStats();
-    showScreen("screen-stats");
-  });
-  document.getElementById("btn-home-exit").addEventListener("click", () => {
-    try {
-      window.open("", "_self");
-      window.close();
-    } catch (e) {
-      /* no-op */
-    }
-    alert("この環境ではアプリを自動終了できません。iPhoneではホームに戻ってアプリを閉じてください。");
-  });
-
-  document.getElementById("btn-stats-home").addEventListener("click", () => showScreen("screen-home"));
-
-  document.getElementById("btn-stats-download").addEventListener("click", exportStatsJoinedCsv);
-
-  document.getElementById("btn-csv-export").addEventListener("click", exportProblemsCsv);
-  document.getElementById("btn-json-export").addEventListener("click", exportProblemsJson);
-
-  document.getElementById("file-csv-import").addEventListener("change", (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        importCsv(String(r.result));
-      } catch (e) {
-        alert("CSVの読み込みに失敗しました。");
-      }
-      e.target.value = "";
-    };
-    r.readAsText(f, "UTF-8");
-  });
-
-  document.getElementById("file-json-import").addEventListener("change", (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        importJson(String(r.result));
-      } catch (e) {
-        alert("JSONの読み込みに失敗しました。");
-      }
-      e.target.value = "";
-    };
-    r.readAsText(f, "UTF-8");
-  });
-
-  fillSetSelects();
-
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () {
-      var isLocalhost =
-        location.hostname === "localhost" ||
-        location.hostname === "127.0.0.1" ||
-        location.hostname === "::1";
-      if (location.protocol === "https:" || isLocalhost) {
-        navigator.serviceWorker.register("./sw.js").catch(function () {
-          /* Service Worker registration failed; app still works online */
-        });
-      }
-    });
-  }
-  } catch (err) {
-    if (helpEl) {
-      helpEl.style.display = "block";
-      helpEl.innerHTML +=
-        "<br><br><strong>初期化エラー:</strong> " + (err && err.message ? String(err.message) : String(err));
-    }
-  }
+</div>
+
+</div>
+<script>
+const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function mk(n,o){return n+'_'+o;}
+
+let stats=(function(){
+  try{const s=JSON.parse(localStorage.getItem('oto_stats'));if(s)return s;}catch(e){}
+  const s={};
+  for(let o=3;o<=5;o++)NOTES.forEach(n=>{s[mk(n,o)]={correct:0,total:0,time:0};});
+  return s;
 })();
-  </script>
+function saveStats(){try{localStorage.setItem('oto_stats',JSON.stringify(stats));}catch(e){}}
+
+function noteFreq(note,oct){
+  return 261.63*Math.pow(2,(NOTES.indexOf(note)+(oct-4)*12)/12);
+}
+
+function makeWavBlob(freq){
+  const sampleRate=22050,duration=1.0;
+  const n=Math.floor(sampleRate*duration);
+  const buf=new ArrayBuffer(44+n*2);
+  const view=new DataView(buf);
+  function ws(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
+  ws(0,'RIFF');view.setUint32(4,36+n*2,true);ws(8,'WAVE');ws(12,'fmt ');
+  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);
+  ws(36,'data');view.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){
+    const t=i/sampleRate;
+    const phase=(t*freq)%1.0;
+    const tri=4*Math.abs(phase-0.5)-1.0;
+    const env=Math.min(1.0,t/0.008)*Math.exp(-3.8*t);
+    const phase2=(t*freq*2)%1.0;
+    const tri2=4*Math.abs(phase2-0.5)-1.0;
+    const v=(tri*0.8+tri2*0.2)*env*0.38;
+    view.setInt16(44+i*2,Math.max(-32768,Math.min(32767,Math.round(v*32767))),true);
+  }
+  return new Blob([buf],{type:'audio/wav'});
+}
+
+const blobCache={};
+function getBlobUrl(note,oct){
+  const key=mk(note,oct);
+  if(!blobCache[key])blobCache[key]=URL.createObjectURL(makeWavBlob(noteFreq(note,oct)));
+  return blobCache[key];
+}
+
+let audioEl=null;
+function playSound(note,oct,cb){
+  const url=getBlobUrl(note,oct);
+  if(!audioEl)audioEl=new Audio();
+  audioEl.pause();audioEl.currentTime=0;audioEl.src=url;
+  audioEl.onended=null;
+  const p=audioEl.play();
+  if(p&&p.catch)p.catch(e=>console.warn('play:',e));
+  if(cb){
+    let fired=false;
+    function done(){if(!fired){fired=true;cb();}}
+    audioEl.onended=done;
+    setTimeout(done,1100);
+  }
+}
+
+let cur=null,t0=null,tiv=null,done=false,mode='normal',octTab='all',waitingFirstPlay=true;
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function goHome(){stopTimer();show('screen-home');}
+function showStats(){updateStats();show('screen-stats');}
+
+function aggNote(n){
+  let c=0,t=0,ti=0;
+  for(let o=3;o<=5;o++){const k=mk(n,o);if(stats[k]){c+=stats[k].correct;t+=stats[k].total;ti+=stats[k].time;}}
+  return{rate:t?c/t:null,avgTime:t?ti/t:null,total:t};
+}
+function classify(){
+  const c20=Math.max(1,Math.ceil(NOTES.length*0.2)),c40=Math.max(1,Math.ceil(NOTES.length*0.4));
+  const byR=[...NOTES].sort((a,b)=>{const ra=aggNote(a).rate,rb=aggNote(b).rate;return(ra??-1)-(rb??-1);});
+  const withT=NOTES.filter(n=>aggNote(n).avgTime!==null);
+  const byT=[...withT].sort((a,b)=>aggNote(b).avgTime-aggNote(a).avgTime);
+  const r20=new Set(byR.slice(0,c20)),r40=new Set(byR.slice(0,c40));
+  const t20=new Set(byT.slice(0,c20)),t40=new Set(byT.slice(0,c40));
+  const res={};
+  NOTES.forEach(n=>{const w20=r20.has(n)||t20.has(n),w40=r40.has(n)||t40.has(n);res[n]=w20?'w20':w40?'w40':'ok';});
+  return res;
+}
+function getCands(m){
+  if(m==='normal')return NOTES.slice();
+  const cl=classify(),tgt=m==='weak20'?['w20']:['w20','w40'];
+  const c=NOTES.filter(n=>tgt.includes(cl[n]));
+  return c.length?c:NOTES.slice();
+}
+function pick(){
+  const c=getCands(mode);
+  return{note:c[Math.floor(Math.random()*c.length)],oct:3+Math.floor(Math.random()*3)};
+}
+
+function startTraining(){
+  mode=document.getElementById('mode-select').value;
+  done=false;waitingFirstPlay=true;
+  buildKeys();setKeys(false);stopTimer();
+  document.getElementById('timer-display').textContent='0:00';
+  setArea('▲ ボタンを押して音を鳴らしてください','answer-area');
+  document.getElementById('play-btn').disabled=false;
+  document.getElementById('play-label').textContent='タップして再生';
+  show('screen-main');cur=pick();
+}
+
+function onPlayBtn(){
+  if(!cur)return;
+  document.getElementById('play-label').textContent='再生中...';
+  document.getElementById('play-btn').disabled=true;
+  playSound(cur.note,cur.oct,function(){
+    document.getElementById('play-btn').disabled=false;
+    document.getElementById('play-label').textContent='もう一度';
+    if(!done){
+      setArea('音名を選んでください','answer-area');
+      if(waitingFirstPlay){waitingFirstPlay=false;startTimer();setKeys(true);}
+    }
+  });
+}
+
+function setArea(txt,cls){const a=document.getElementById('answer-area');a.textContent=txt;a.className=cls;}
+function buildKeys(){
+  const g=document.getElementById('keys-grid');g.innerHTML='';
+  NOTES.forEach(n=>{
+    const b=document.createElement('button');
+    b.className='key-btn'+(n.includes('#')?' sharp':'');
+    b.textContent=n;b.dataset.note=n;b.onclick=function(){answer(n);};g.appendChild(b);
+  });
+}
+function setKeys(en){
+  document.querySelectorAll('.key-btn').forEach(b=>b.disabled=!en);
+  document.getElementById('pass-btn').disabled=!en;
+}
+function startTimer(){
+  t0=Date.now();
+  tiv=setInterval(function(){
+    const s=Math.floor((Date.now()-t0)/1000);
+    document.getElementById('timer-display').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  },500);
+}
+function stopTimer(){clearInterval(tiv);tiv=null;}
+
+function answer(ch){
+  if(done)return;done=true;setKeys(false);
+  document.getElementById('play-btn').disabled=true;
+  const el=t0?(Date.now()-t0)/1000:0;stopTimer();
+  const k=mk(cur.note,cur.oct);
+  if(!stats[k])stats[k]={correct:0,total:0,time:0};
+  stats[k].total++;stats[k].time+=el;
+  const ok=ch===cur.note;if(ok)stats[k].correct++;
+  saveStats();
+  if(ch==='__pass__')setArea('— パス　正解は '+cur.note+' (oct '+cur.oct+')','answer-area ng');
+  else if(ok)setArea('✓ 正解！　'+cur.note+' (oct '+cur.oct+')','answer-area ok');
+  else setArea('✗ 不正解　正解は '+cur.note+' (oct '+cur.oct+')','answer-area ng');
+  document.querySelectorAll('.key-btn').forEach(b=>{if(b.dataset.note===cur.note)b.style.background='#d4d0f5';});
+  setTimeout(function(){
+    done=false;
+    document.querySelectorAll('.key-btn').forEach(b=>b.style.background='');
+    cur=pick();waitingFirstPlay=true;setKeys(false);t0=null;
+    document.getElementById('timer-display').textContent='0:00';
+    setArea('▲ ボタンを押して音を鳴らしてください','answer-area');
+    document.getElementById('play-btn').disabled=false;
+    document.getElementById('play-label').textContent='タップして再生';
+  },1500);
+}
+function doPass(){answer('__pass__');}
+
+function setOctTab(o,el){
+  octTab=o;document.querySelectorAll('.oct-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable();
+}
+function updateStats(){
+  let tc=0,tt=0,ti=0;
+  Object.values(stats).forEach(s=>{tc+=s.correct;tt+=s.total;ti+=s.time;});
+  document.getElementById('s-correct').textContent=tc;
+  document.getElementById('s-total').textContent=tt;
+  document.getElementById('s-rate').textContent=tt?Math.round(tc/tt*100)+'%':'—';
+  document.getElementById('s-avg').textContent=tt?Math.round(ti/tt*10)/10+'s':'—';
+  renderTable();
+}
+function renderTable(){
+  const tb=document.getElementById('note-table-body');tb.innerHTML='';
+  const cl=classify(),rows=[];
+  if(octTab==='all'){
+    NOTES.forEach(n=>{
+      let c=0,t=0,ti=0;
+      for(let o=3;o<=5;o++){const k=mk(n,o);if(stats[k]){c+=stats[k].correct;t+=stats[k].total;ti+=stats[k].time;}}
+      rows.push({label:n,correct:c,total:t,time:ti,cls:cl[n]});
+    });
+  }else{
+    NOTES.forEach(n=>{
+      const k=mk(n,octTab),s=stats[k]||{correct:0,total:0,time:0};
+      rows.push({label:n+octTab,correct:s.correct,total:s.total,time:s.time,cls:cl[n]});
+    });
+  }
+  rows.forEach(r=>{
+    const rate=r.total?Math.round(r.correct/r.total*100):null;
+    const avg=r.total?Math.round(r.time/r.total*10)/10:null;
+    const tr=document.createElement('tr');
+    if(r.cls==='w20')tr.className='tr-w20';else if(r.cls==='w40')tr.className='tr-w40';
+    const badge=r.cls==='w20'?'<span class="badge badge-w20">苦手</span>':r.cls==='w40'?'<span class="badge badge-w40">やや苦手</span>':'';
+    tr.innerHTML='<td style="font-weight:600">'+r.label+badge+'</td><td>'+r.correct+'</td><td>'+r.total+'</td><td>'+(rate!==null?rate+'%':'—')+'</td><td>'+(avg!==null?avg+'s':'—')+'</td>';
+    tb.appendChild(tr);
+  });
+}
+</script>
 </body>
 </html>
